@@ -1,16 +1,12 @@
 # Playlist Tracker v7
 
-Local-first YouTube playlist tracker with Google sign-in, Firestore synchronization and Cloudflare Pages Functions for secure YouTube imports.
+Initial browser-based prototype: Google sign-in, Firestore personal libraries, YouTube player and reviews. Not a full migration of v6 yet.
 
-## Setup
+## Configuration
 
-1. Create a Firebase Spark project, enable Google authentication and Firestore in a European region. Register a web app and copy its public configuration into `public/config.js`.
-2. Publish the repository using Cloudflare Pages (framework None, output `public`, no build command). Add the Pages domain to Firebase Authentication authorized domains.
-3. In Cloudflare Pages settings add encrypted `YOUTUBE_API_KEY`, `FIREBASE_PROJECT_ID` and `ALLOWED_IMPORT_EMAILS` (comma-separated verified Google email addresses). Redeploy after configuration.
-4. Publish `firestore.rules` in Firebase Console before signing in.
+1. Create Firebase Spark project, enable Google sign-in and Firestore (EU), register web app. Copy public config to `public/config.js`.
+2. Publish `firestore.rules` in Firebase Console.
+3. Connect GitHub repository to Cloudflare Pages. Framework None, no build command, output `public`. Add Pages domain to Firebase authorized domains.
+4. Set Cloudflare server-side variables `FIREBASE_PROJECT_ID`, `FIREBASE_WEB_API_KEY` and encrypted secrets `YOUTUBE_API_KEY`, `ALLOWED_IMPORT_EMAILS` (comma-separated verified Google emails). Redeploy.
 
-Never commit YouTube keys, service-account credentials or personal backups. This repository is a public source repository.
-
-## Status
-
-Initial v7 foundation; deployment configuration and browser integration tests are required before production use.
+Never commit YouTube keys or personal backups. Import is restricted to allowlisted users and 250 entries per playlist. Durable rate limits, metadata expiry, offline cache, migration, sharing, exports and full browser testing are outstanding. Do not open imports to untrusted users until quota controls are implemented. Firestore rules isolate users by authenticated UID.
