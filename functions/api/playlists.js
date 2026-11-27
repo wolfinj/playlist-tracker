@@ -3,7 +3,7 @@
 export async function onRequestGet({request,env}){
  const json=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
  try{
-  if(!env.YOUTUBE_API_KEY||!env.FIREBASE_PROJECT_ID||!env.ALLOWED_IMPORT_EMAILS)return json({error:'Import service not configured'},503);
+  if(!env.YOUTUBE_API_KEY||!env.FIREBASE_PROJECT_ID)return json({error:'Import service not configured'},503);
   const token=request.headers.get('Authorization')?.match(/^Bearer (\S+)$/)?.[1];
   if(!token)return json({error:'Sign in first'},401);
   // Verify the Firebase ID token using Identity Toolkit lookup; the public Firebase key identifies the project.
@@ -14,7 +14,11 @@ export async function onRequestGet({request,env}){
   // Account lookup validates the token; additionally bind project, identity and expiry.
   const claims=JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
   if(!account||account.disabled||!account.emailVerified||claims.aud!==env.FIREBASE_PROJECT_ID||claims.iss!=='https://securetoken.google.com/'+env.FIREBASE_PROJECT_ID||claims.sub!==account.localId||claims.exp<=Date.now()/1000||claims.firebase?.sign_in_provider!=='google.com')return json({error:'Invalid Google session'},401);
-  if(!env.ALLOWED_IMPORT_EMAILS.split(',').map(x=>x.trim().toLowerCase()).includes(account.email.toLowerCase()))return json({error:'Import access not granted'},403);
+  const base='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/';
+  async function permission(path){const res=await fetch(base+path,{headers:{Authorization:'Bearer '+token}});if(res.status===404)return null;if(!res.ok)throw Error('Permission lookup unavailable');return res.json();}
+  const email=account.email.toLowerCase();
+  const [admin,grant]=await Promise.all([permission('admins/'+encodeURIComponent(account.localId)),permission('importAccess/'+encodeURIComponent(email))]);
+  if(!admin&&grant?.fields?.allowed?.booleanValue!==true)return json({error:'Import access not granted. Ask an administrator.'},403);
   const id=new URL(request.url).searchParams.get('playlistId');
   if(!id||!/^[A-Za-z0-9_-]{10,150}$/.test(id))return json({error:'Invalid playlist ID'},400);
   async function yt(resource,params){const url=new URL('https://www.googleapis.com/youtube/v3/'+resource);for(const [k,v] of Object.entries({...params,key:env.YOUTUBE_API_KEY}))url.searchParams.set(k,v);const r=await fetch(url);if(!r.ok)throw Error('YouTube request failed ('+r.status+')');return r.json();}
