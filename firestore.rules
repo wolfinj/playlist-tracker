@@ -35,9 +35,11 @@ service cloud.firestore {
         && request.resource.data.expiresAt > request.time
         && request.resource.data.expiresAt <= request.time + duration.value(30,'d')
         && request.resource.data.data is map
-        && request.resource.data.data.keys().hasOnly(['title','thumbnail','videos'])
+        && request.resource.data.data.keys().hasOnly(['title','thumbnail','videos','authorName','authorEmail'])
         && request.resource.data.data.title is string
         && request.resource.data.data.thumbnail is bool
+        && (!('authorName' in request.resource.data.data) || (request.resource.data.data.authorName is string && request.resource.data.data.authorName.size() <= 200))
+        && (!('authorEmail' in request.resource.data.data) || request.resource.data.data.authorEmail == request.auth.token.email)
         && request.resource.data.data.videos is list
         && request.resource.data.data.videos.size() <= 1000;
       allow update: if false;
