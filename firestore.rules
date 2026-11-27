@@ -1,6 +1,28 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function admin() { return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    match /admins/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, write: if false;
+    }
+    match /sharedReviews/{id} {
+      allow get: if resource.data.expiresAt > request.time;
+      allow list: if false;
+      allow create: if request.auth != null && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasOnly(['owner','data','expiresAt'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(30,'d')
+        && request.resource.data.data is map
+        && request.resource.data.data.keys().hasOnly(['title','thumbnail','videos'])
+        && request.resource.data.data.title is string
+        && request.resource.data.data.thumbnail is bool
+        && request.resource.data.data.videos is list
+        && request.resource.data.data.videos.size() <= 1000;
+      allow update: if false;
+      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+    }
     match /users/{uid}/playlists/{id} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
@@ -8,8 +30,8 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
     match /sharedPlaylists/{id} {
-      allow get: if resource.data.expiresAt > request.time;
-      allow list: if false;
+      allow get: if admin() || resource.data.expiresAt > request.time;
+      allow list: if admin();
       allow create: if request.auth != null
         && request.auth.token.email_verified == true
         && request.resource.data.keys().hasOnly(['owner','data','refreshedAt','expiresAt'])
@@ -24,7 +46,7 @@ service cloud.firestore {
         && request.resource.data.data.videos is list
         && request.resource.data.data.videos.size() <= 1000;
       allow update: if false;
-      allow delete: if request.auth != null && resource.data.owner == request.auth.uid;
+      allow delete: if admin() || (request.auth != null && resource.data.owner == request.auth.uid);
     }
   }
 }
